@@ -50,10 +50,26 @@
     gap: 12px;
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   #all-toggle:disabled {
     opacity: 0.4;
     cursor: default;
   }
+
+  #clear-done {
+    background: #fff;
+    color: var(--danger);
+    border-color: #d6d0c4;
+  }
+
+  #clear-done:hover { background: #fee2e2; }
+
+  #clear-done[hidden] { display: none; }
 
   header p {
     margin: 2px 0 0;
@@ -174,6 +190,12 @@
     fill: currentColor;
   }
 
+  .timer-body > .members {
+    margin-right: 6px;
+    padding-right: 16px;
+    border-right: 2px solid rgba(28, 25, 23, 0.28);
+  }
+
   button {
     font: 600 0.9rem/1 inherit;
     border-radius: 10px;
@@ -211,14 +233,6 @@
 
   .primary:hover { background: #1e40af; }
 
-  .ghost {
-    background: rgba(255, 255, 255, 0.78);
-    color: var(--ink);
-    border-color: #d6d0c4;
-  }
-
-  .ghost:hover { background: #fff; }
-
   #add-form {
     background: #fffdf8;
     border: 1px solid var(--line);
@@ -234,12 +248,8 @@
 
   .steppers {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
-  }
-
-  @media (max-width: 520px) {
-    .steppers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 
   .stepper-label {
@@ -319,7 +329,11 @@
   <header>
     <div class="header-row">
       <h1>Timers</h1>
-      <button type="button" id="all-toggle" class="icon-btn primary" aria-label="Play all" disabled></button>
+      <div class="header-actions">
+        <span id="total-members" class="members" aria-label="0 members"></span>
+        <button type="button" id="all-toggle" class="icon-btn primary" aria-label="Play all" disabled></button>
+        <button type="button" id="clear-done" class="icon-btn" aria-label="Delete completed timers" hidden></button>
+      </div>
     </div>
     <p>Saved on this device. Swipe a timer left to remove it.</p>
   </header>
@@ -330,11 +344,11 @@
     <h2>Add a timer</h2>
     <div class="steppers">
       <div class="stepper">
-        <span class="stepper-label">Hours</span>
+        <span class="stepper-label">Members</span>
         <div class="stepper-row">
-          <button type="button" data-step="hours" data-dir="-1" aria-label="Decrease hours">−</button>
-          <output id="hours">0</output>
-          <button type="button" data-step="hours" data-dir="1" aria-label="Increase hours">+</button>
+          <button type="button" data-step="members" data-dir="-1" aria-label="Decrease members">−</button>
+          <output id="members">1</output>
+          <button type="button" data-step="members" data-dir="1" aria-label="Increase members">+</button>
         </div>
       </div>
       <div class="stepper">
@@ -353,14 +367,6 @@
           <button type="button" data-step="seconds" data-dir="1" aria-label="Increase seconds">+</button>
         </div>
       </div>
-      <div class="stepper">
-        <span class="stepper-label">Members</span>
-        <div class="stepper-row">
-          <button type="button" data-step="members" data-dir="-1" aria-label="Decrease members">−</button>
-          <output id="members">1</output>
-          <button type="button" data-step="members" data-dir="1" aria-label="Increase members">+</button>
-        </div>
-      </div>
     </div>
     <p id="form-error" class="error" role="alert"></p>
     <button id="add-btn" class="primary" type="submit">Add timer</button>
@@ -370,31 +376,31 @@
       <button type="button" data-preset="600">10 min</button>
       <button type="button" data-preset="900">15 min</button>
       <button type="button" data-preset="1800">30 min</button>
-      <button type="button" data-preset="3600">1 hour</button>
     </div>
   </form>
 </main>
 
 <script>
 const STORAGE_KEY = "multi-timers-v1";
-const STEP_MAX = { hours: 99, minutes: 59, seconds: 59, members: 99 };
+const STEP_MAX = { minutes: 59, seconds: 59, members: 99 };
 const ICONS = {
   play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.16-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
-  reset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.7 14h-2.1a6 6 0 1 1-1.6-6.2L13 11h7V4l-2.35 2.35z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
   people: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>'
 };
 
 const listEl = document.getElementById("list");
 const formEl = document.getElementById("add-form");
-const hoursEl = document.getElementById("hours");
 const minutesEl = document.getElementById("minutes");
 const secondsEl = document.getElementById("seconds");
 const membersEl = document.getElementById("members");
 const errorEl = document.getElementById("form-error");
 const allBtn = document.getElementById("all-toggle");
+const clearBtn = document.getElementById("clear-done");
+const totalMembersEl = document.getElementById("total-members");
 
-const parts = { hours: 0, minutes: 5, seconds: 0, members: 1 };
+const parts = { minutes: 5, seconds: 0, members: 1 };
 let timers = load();
 let audioCtx = null;
 let drag = null;
@@ -546,14 +552,7 @@ function cardElement(timer) {
   toggle.innerHTML = toggleIcon(timer);
   toggle.setAttribute("aria-label", toggleName(timer));
 
-  const reset = document.createElement("button");
-  reset.type = "button";
-  reset.className = "icon-btn ghost";
-  reset.dataset.action = "reset";
-  reset.innerHTML = ICONS.reset;
-  reset.setAttribute("aria-label", "Reset");
-
-  body.append(time, members, toggle, reset);
+  body.append(members, time, toggle);
   card.append(fill, body);
   card.setAttribute("aria-label", time.textContent + ", " + members.getAttribute("aria-label") + ". Swipe left to remove.");
   wrap.append(hint, card);
@@ -614,6 +613,17 @@ function updateTitle() {
 }
 
 function updateAllButton() {
+  const total = timers.reduce((sum, timer) => sum + normalizeMembers(timer.members), 0);
+  if (!totalMembersEl.querySelector("svg")) {
+    totalMembersEl.innerHTML = ICONS.people + '<span class="members-count"></span>';
+  }
+  totalMembersEl.querySelector(".members-count").textContent = String(total);
+  totalMembersEl.setAttribute("aria-label", total + (total === 1 ? " member total" : " members total"));
+
+  const hasDone = timers.some((t) => t.completed);
+  clearBtn.hidden = !hasDone;
+  if (hasDone && !clearBtn.querySelector("svg")) clearBtn.innerHTML = ICONS.trash;
+
   const running = timers.some((t) => t.running);
   const label = running ? "Pause all" : "Play all";
   allBtn.disabled = timers.length === 0;
@@ -643,6 +653,13 @@ allBtn.addEventListener("click", () => {
   for (const timer of timers) updateCard(timer);
   syncOrder();
   updateTitle();
+});
+
+clearBtn.addEventListener("click", () => {
+  if (!timers.some((t) => t.completed)) return;
+  timers = timers.filter((t) => !t.completed);
+  save();
+  renderAll();
 });
 
 function findTimer(id) {
@@ -677,13 +694,6 @@ function pauseTimer(timer) {
   timer.endsAt = null;
 }
 
-function resetTimer(timer) {
-  timer.running = false;
-  timer.endsAt = null;
-  timer.remainingMs = timer.durationMs;
-  timer.completed = false;
-}
-
 function finishTimer(timer) {
   timer.running = false;
   timer.endsAt = null;
@@ -704,8 +714,7 @@ listEl.addEventListener("click", (event) => {
   if (!timer) return;
   unlockAudio();
 
-  if (button.dataset.action === "reset") resetTimer(timer);
-  else if (button.dataset.action === "toggle") {
+  if (button.dataset.action === "toggle") {
     if (timer.running) pauseTimer(timer);
     else startTimer(timer);
   }
@@ -827,7 +836,6 @@ document.querySelector(".presets").addEventListener("click", (event) => {
 });
 
 function renderParts() {
-  hoursEl.textContent = String(parts.hours);
   minutesEl.textContent = String(parts.minutes);
   secondsEl.textContent = String(parts.seconds);
   membersEl.textContent = String(parts.members);
@@ -835,14 +843,13 @@ function renderParts() {
 
 function setParts(totalSec) {
   const safe = Math.max(0, Math.floor(totalSec));
-  parts.hours = Math.min(STEP_MAX.hours, Math.floor(safe / 3600));
-  parts.minutes = Math.min(STEP_MAX.minutes, Math.floor((safe % 3600) / 60));
+  parts.minutes = Math.min(STEP_MAX.minutes, Math.floor(safe / 60));
   parts.seconds = Math.min(STEP_MAX.seconds, safe % 60);
   renderParts();
 }
 
 function readDurationSeconds() {
-  return parts.hours * 3600 + parts.minutes * 60 + parts.seconds;
+  return parts.minutes * 60 + parts.seconds;
 }
 
 function unlockAudio() {
