@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Timers</title>
+<style>
+  :root {
+    --bg: #f3f0e8;
+    --card: #fffdf8;
+    --ink: #1c1917;
+    --muted: #57534e;
+    --line: #e7e0d4;
+    --accent: #1d4ed8;
+    --accent-ink: #ffffff;
+    --danger: #b91c1c;
+    --shadow: 0 1px 2px rgba(28, 25, 23, 0.06), 0 8px 24px rgba(28, 25, 23, 0.05);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.4 "Segoe UI", system-ui, sans-serif;
+  }
+
+  main {
+    width: min(560px, 100%);
+    min-height: 100dvh;
+    margin: 0 auto;
+    padding: 20px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    letter-spacing: -0.03em;
+  }
+
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  #all-toggle:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  header p {
+    margin: 2px 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  #list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .empty {
+    margin: 0;
+    padding: 18px 12px;
+    text-align: center;
+    color: var(--muted);
+    border: 1px dashed #d6d0c4;
+    border-radius: 14px;
+    background: rgba(255, 253, 248, 0.6);
+  }
+
+  .swipe {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+
+  .swipe-delete {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 16px;
+    background: var(--danger);
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .timer {
+    position: relative;
+    overflow: hidden;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    touch-action: pan-y;
+    user-select: none;
+    transform: translateX(0);
+    transition: transform 0.18s ease;
+  }
+
+  .timer:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .timer.dragging { transition: none; }
+
+  .timer.done { border-color: #16a34a; }
+
+  .fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    background: #bfdbfe;
+    pointer-events: none;
+    transition: width 0.2s linear;
+  }
+
+  .timer.done .fill {
+    animation: done-blink 0.9s ease-in-out infinite;
+  }
+
+  @keyframes done-blink {
+    0%, 100% { background-color: #dcfce7; }
+    50% { background-color: #4ade80; }
+  }
+
+  .timer-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 8px 10px;
+  }
+
+  .time {
+    flex: 1;
+    min-width: 0;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .members {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  .members svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+  }
+
+  button {
+    font: 600 0.9rem/1 inherit;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .icon-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+    display: block;
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .primary:hover { background: #1e40af; }
+
+  .ghost {
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--ink);
+    border-color: #d6d0c4;
+  }
+
+  .ghost:hover { background: #fff; }
+
+  #add-form {
+    background: #fffdf8;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 12px;
+  }
+
+  #add-form h2 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+  }
+
+  .steppers {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  @media (max-width: 520px) {
+    .steppers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  .stepper-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  .stepper-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .stepper-row button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    flex: none;
+    background: #f3f0e8;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    font-size: 1.25rem;
+    line-height: 1;
+  }
+
+  .stepper-row button:hover { background: #e7e0d4; }
+
+  .stepper-row output {
+    flex: 1;
+    min-width: 1.6rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 1.2rem;
+  }
+
+  #add-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px 14px;
+  }
+
+  .error {
+    min-height: 1.2em;
+    margin: 8px 0 0;
+    color: var(--danger);
+    font-size: 0.9rem;
+  }
+
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .presets button {
+    background: #f3f0e8;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+
+  .presets button:hover { background: #e7e0d4; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="header-row">
+      <h1>Timers</h1>
+      <button type="button" id="all-toggle" class="icon-btn primary" aria-label="Play all" disabled></button>
+    </div>
+    <p>Saved on this device. Swipe a timer left to remove it.</p>
+  </header>
+
+  <section id="list" aria-live="polite"></section>
+
+  <form id="add-form">
+    <h2>Add a timer</h2>
+    <div class="steppers">
+      <div class="stepper">
+        <span class="stepper-label">Hours</span>
+        <div class="stepper-row">
+          <button type="button" data-step="hours" data-dir="-1" aria-label="Decrease hours">−</button>
+          <output id="hours">0</output>
+          <button type="button" data-step="hours" data-dir="1" aria-label="Increase hours">+</button>
+        </div>
+      </div>
+      <div class="stepper">
+        <span class="stepper-label">Min</span>
+        <div class="stepper-row">
+          <button type="button" data-step="minutes" data-dir="-1" aria-label="Decrease minutes">−</button>
+          <output id="minutes">5</output>
+          <button type="button" data-step="minutes" data-dir="1" aria-label="Increase minutes">+</button>
+        </div>
+      </div>
+      <div class="stepper">
+        <span class="stepper-label">Sec</span>
+        <div class="stepper-row">
+          <button type="button" data-step="seconds" data-dir="-1" aria-label="Decrease seconds">−</button>
+          <output id="seconds">0</output>
+          <button type="button" data-step="seconds" data-dir="1" aria-label="Increase seconds">+</button>
+        </div>
+      </div>
+      <div class="stepper">
+        <span class="stepper-label">Members</span>
+        <div class="stepper-row">
+          <button type="button" data-step="members" data-dir="-1" aria-label="Decrease members">−</button>
+          <output id="members">1</output>
+          <button type="button" data-step="members" data-dir="1" aria-label="Increase members">+</button>
+        </div>
+      </div>
+    </div>
+    <p id="form-error" class="error" role="alert"></p>
+    <button id="add-btn" class="primary" type="submit">Add timer</button>
+    <div class="presets" aria-label="Quick durations">
+      <button type="button" data-preset="60">1 min</button>
+      <button type="button" data-preset="300">5 min</button>
+      <button type="button" data-preset="600">10 min</button>
+      <button type="button" data-preset="900">15 min</button>
+      <button type="button" data-preset="1800">30 min</button>
+      <button type="button" data-preset="3600">1 hour</button>
+    </div>
+  </form>
+</main>
+
+<script>
+const STORAGE_KEY = "multi-timers-v1";
+const STEP_MAX = { hours: 99, minutes: 59, seconds: 59, members: 99 };
+const ICONS = {
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.16-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
+  reset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 19.7 14h-2.1a6 6 0 1 1-1.6-6.2L13 11h7V4l-2.35 2.35z"/></svg>',
+  people: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zM8 11c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>'
+};
+
+const listEl = document.getElementById("list");
+const formEl = document.getElementById("add-form");
+const hoursEl = document.getElementById("hours");
+const minutesEl = document.getElementById("minutes");
+const secondsEl = document.getElementById("seconds");
+const membersEl = document.getElementById("members");
+const errorEl = document.getElementById("form-error");
+const allBtn = document.getElementById("all-toggle");
+
+const parts = { hours: 0, minutes: 5, seconds: 0, members: 1 };
+let timers = load();
+let audioCtx = null;
+let drag = null;
+let suppressClick = false;
+const removing = new Set();
+
+function load() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!Array.isArray(raw)) return [];
+    const now = Date.now();
+    return raw.filter(isTimer).map((t) => {
+      const members = normalizeMembers(t.members);
+      if (t.running && typeof t.endsAt === "number") {
+        const remaining = t.endsAt - now;
+        if (remaining <= 0) {
+          return { ...t, members, running: false, remainingMs: 0, endsAt: null, completed: true };
+        }
+        return { ...t, members, remainingMs: remaining, completed: false };
+      }
+      return {
+        ...t,
+        members,
+        running: false,
+        endsAt: null,
+        remainingMs: clampMs(t.remainingMs),
+        completed: t.remainingMs <= 0 && t.completed === true
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+function isTimer(t) {
+  return t && typeof t.id === "string" && typeof t.durationMs === "number" && t.durationMs >= 0;
+}
+
+function clampMs(ms) {
+  return Math.max(0, Number(ms) || 0);
+}
+
+function normalizeMembers(value) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 0) return 1;
+  return Math.min(STEP_MAX.members, n);
+}
+
+function save() {
+  const payload = timers.map((t) => ({
+    id: t.id,
+    label: t.label || "",
+    members: normalizeMembers(t.members),
+    durationMs: t.durationMs,
+    remainingMs: t.running && t.endsAt ? Math.max(0, t.endsAt - Date.now()) : t.remainingMs,
+    running: t.running,
+    endsAt: t.running ? t.endsAt : null,
+    completed: t.completed
+  }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function format(ms) {
+  const total = ms <= 0 ? 0 : Math.ceil(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  if (h > 0) return h + ":" + pad(m) + ":" + pad(s);
+  return pad(m) + ":" + pad(s);
+}
+
+function newId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return "t-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+function sortTimers() {
+  timers.sort((a, b) => displayRemaining(a) - displayRemaining(b));
+}
+
+function syncOrder() {
+  if (drag) return;
+  sortTimers();
+  const domIds = [...listEl.querySelectorAll(".timer")].map((el) => el.dataset.id);
+  const ids = timers.map((t) => t.id);
+  if (domIds.length === ids.length && ids.every((id, i) => id === domIds[i])) return;
+  const wraps = new Map();
+  listEl.querySelectorAll(".swipe").forEach((wrap) => {
+    const card = wrap.querySelector(".timer");
+    if (card) wraps.set(card.dataset.id, wrap);
+  });
+  for (const id of ids) {
+    const node = wraps.get(id);
+    if (node) listEl.appendChild(node);
+  }
+}
+
+function renderAll() {
+  sortTimers();
+  listEl.replaceChildren();
+  if (timers.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "No timers yet. Add one below.";
+    listEl.appendChild(empty);
+    updateTitle();
+    return;
+  }
+  for (const timer of timers) listEl.appendChild(cardElement(timer));
+  updateTitle();
+}
+
+function cardElement(timer) {
+  const wrap = document.createElement("div");
+  wrap.className = "swipe";
+
+  const hint = document.createElement("div");
+  hint.className = "swipe-delete";
+  hint.textContent = "Delete";
+  hint.setAttribute("aria-hidden", "true");
+
+  const card = document.createElement("article");
+  card.className = "timer" + (timer.running ? " running" : "") + (timer.completed ? " done" : "");
+  card.dataset.id = timer.id;
+  card.tabIndex = 0;
+
+  const fill = document.createElement("div");
+  fill.className = "fill";
+  fill.style.width = progressPct(timer) + "%";
+
+  const body = document.createElement("div");
+  body.className = "timer-body";
+
+  const time = document.createElement("div");
+  time.className = "time";
+  time.textContent = format(displayRemaining(timer));
+
+  const members = document.createElement("span");
+  members.className = "members";
+  members.innerHTML = ICONS.people + '<span class="members-count"></span>';
+  members.querySelector(".members-count").textContent = String(timer.members);
+  members.setAttribute("aria-label", timer.members + (timer.members === 1 ? " member" : " members"));
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "icon-btn primary";
+  toggle.dataset.action = "toggle";
+  toggle.innerHTML = toggleIcon(timer);
+  toggle.setAttribute("aria-label", toggleName(timer));
+
+  const reset = document.createElement("button");
+  reset.type = "button";
+  reset.className = "icon-btn ghost";
+  reset.dataset.action = "reset";
+  reset.innerHTML = ICONS.reset;
+  reset.setAttribute("aria-label", "Reset");
+
+  body.append(time, members, toggle, reset);
+  card.append(fill, body);
+  card.setAttribute("aria-label", time.textContent + ", " + members.getAttribute("aria-label") + ". Swipe left to remove.");
+  wrap.append(hint, card);
+  return wrap;
+}
+
+function displayRemaining(timer) {
+  if (timer.running && timer.endsAt) return Math.max(0, timer.endsAt - Date.now());
+  return timer.remainingMs;
+}
+
+function progressPct(timer) {
+  if (!timer.durationMs) return timer.completed ? 100 : 0;
+  const remaining = displayRemaining(timer);
+  return Math.max(0, Math.min(100, ((timer.durationMs - remaining) / timer.durationMs) * 100));
+}
+
+function toggleName(timer) {
+  if (timer.running) return "Pause";
+  if (timer.completed) return "Start again";
+  return "Start";
+}
+
+function toggleIcon(timer) {
+  return timer.running ? ICONS.pause : ICONS.play;
+}
+
+function updateCard(timer) {
+  const card = listEl.querySelector('[data-id="' + CSS.escape(timer.id) + '"]');
+  if (!card) return;
+  card.classList.toggle("running", timer.running);
+  card.classList.toggle("done", timer.completed);
+  const label = format(displayRemaining(timer));
+  card.querySelector(".time").textContent = label;
+  card.querySelector(".fill").style.width = progressPct(timer) + "%";
+  const toggle = card.querySelector('[data-action="toggle"]');
+  const name = toggleName(timer);
+  if (toggle.getAttribute("aria-label") !== name) {
+    toggle.innerHTML = toggleIcon(timer);
+    toggle.setAttribute("aria-label", name);
+  }
+  const memberCount = normalizeMembers(timer.members);
+  const memberText = memberCount + (memberCount === 1 ? " member" : " members");
+  card.querySelector(".members-count").textContent = String(memberCount);
+  card.querySelector(".members").setAttribute("aria-label", memberText);
+  card.setAttribute("aria-label", label + ", " + memberText + ". Swipe left to remove.");
+}
+
+function updateTitle() {
+  const done = timers.some((t) => t.completed);
+  const running = timers
+    .filter((t) => t.running && t.endsAt)
+    .sort((a, b) => a.endsAt - b.endsAt);
+  if (done && running.length === 0) document.title = "Done — Timers";
+  else if (running.length) document.title = format(displayRemaining(running[0])) + " — Timers";
+  else document.title = "Timers";
+  updateAllButton();
+}
+
+function updateAllButton() {
+  const running = timers.some((t) => t.running);
+  const label = running ? "Pause all" : "Play all";
+  allBtn.disabled = timers.length === 0;
+  if (allBtn.getAttribute("aria-label") === label && allBtn.querySelector("svg")) return;
+  allBtn.setAttribute("aria-label", label);
+  allBtn.innerHTML = running ? ICONS.pause : ICONS.play;
+}
+
+function playAll() {
+  const waiting = timers.filter((t) => !t.running && !t.completed && t.remainingMs > 0);
+  const targets = waiting.length ? waiting : timers.filter((t) => !t.running);
+  for (const timer of targets) startTimer(timer);
+}
+
+function pauseAll() {
+  for (const timer of timers) {
+    if (timer.running) pauseTimer(timer);
+  }
+}
+
+allBtn.addEventListener("click", () => {
+  if (!timers.length) return;
+  unlockAudio();
+  if (timers.some((t) => t.running)) pauseAll();
+  else playAll();
+  save();
+  for (const timer of timers) updateCard(timer);
+  syncOrder();
+  updateTitle();
+});
+
+function findTimer(id) {
+  return timers.find((t) => t.id === id);
+}
+
+function removeTimer(id) {
+  if (removing.has(id)) return;
+  removing.add(id);
+  timers = timers.filter((t) => t.id !== id);
+  save();
+  renderAll();
+  removing.delete(id);
+}
+
+function startTimer(timer) {
+  if (timer.completed || timer.remainingMs <= 0) {
+    timer.remainingMs = timer.durationMs;
+    timer.completed = false;
+  }
+  if (timer.remainingMs <= 0) return;
+  timer.running = true;
+  timer.endsAt = Date.now() + timer.remainingMs;
+  timer.completed = false;
+}
+
+function pauseTimer(timer) {
+  if (timer.running && timer.endsAt) {
+    timer.remainingMs = Math.max(0, timer.endsAt - Date.now());
+  }
+  timer.running = false;
+  timer.endsAt = null;
+}
+
+function resetTimer(timer) {
+  timer.running = false;
+  timer.endsAt = null;
+  timer.remainingMs = timer.durationMs;
+  timer.completed = false;
+}
+
+function finishTimer(timer) {
+  timer.running = false;
+  timer.endsAt = null;
+  timer.remainingMs = 0;
+  timer.completed = true;
+}
+
+listEl.addEventListener("click", (event) => {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  const button = event.target.closest("button");
+  if (!button) return;
+  const card = button.closest(".timer");
+  if (!card) return;
+  const timer = findTimer(card.dataset.id);
+  if (!timer) return;
+  unlockAudio();
+
+  if (button.dataset.action === "reset") resetTimer(timer);
+  else if (button.dataset.action === "toggle") {
+    if (timer.running) pauseTimer(timer);
+    else startTimer(timer);
+  }
+  save();
+  updateCard(timer);
+  syncOrder();
+  updateTitle();
+});
+
+listEl.addEventListener("keydown", (event) => {
+  if (event.key !== "Delete" && event.key !== "Backspace") return;
+  if (event.target.closest("button")) return;
+  const card = event.target.closest(".timer");
+  if (!card) return;
+  event.preventDefault();
+  removeTimer(card.dataset.id);
+});
+
+listEl.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  if (event.target.closest("button")) return;
+  const card = event.target.closest(".timer");
+  if (!card) return;
+  drag = {
+    card,
+    id: card.dataset.id,
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    dx: 0,
+    active: false
+  };
+});
+
+listEl.addEventListener("pointermove", (event) => {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const dx = event.clientX - drag.startX;
+  const dy = event.clientY - drag.startY;
+  if (!drag.active) {
+    if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
+      drag = null;
+      return;
+    }
+    if (dx > -8) return;
+    drag.active = true;
+    drag.card.classList.add("dragging");
+    try { drag.card.setPointerCapture(event.pointerId); } catch (e) {}
+  }
+  drag.dx = Math.min(0, dx);
+  drag.card.style.transform = "translateX(" + drag.dx + "px)";
+});
+
+function endDrag(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const current = drag;
+  drag = null;
+  if (!current.active) return;
+  suppressClick = true;
+  current.card.classList.remove("dragging");
+  const threshold = Math.min(110, current.card.offsetWidth * 0.38);
+  if (current.dx <= -threshold) {
+    current.card.style.transform = "translateX(-105%)";
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      removeTimer(current.id);
+    };
+    current.card.addEventListener("transitionend", finish, { once: true });
+    setTimeout(finish, 240);
+    return;
+  }
+  current.card.style.transform = "";
+  syncOrder();
+}
+
+listEl.addEventListener("pointerup", endDrag);
+listEl.addEventListener("pointercancel", endDrag);
+
+formEl.addEventListener("submit", (event) => {
+  event.preventDefault();
+  unlockAudio();
+  const totalSec = readDurationSeconds();
+  if (totalSec <= 0) {
+    errorEl.textContent = "Set a time greater than zero.";
+    return;
+  }
+  errorEl.textContent = "";
+  timers.push({
+    id: newId(),
+    label: "",
+    members: parts.members,
+    durationMs: totalSec * 1000,
+    remainingMs: totalSec * 1000,
+    running: false,
+    endsAt: null,
+    completed: false
+  });
+  save();
+  renderAll();
+});
+
+document.querySelector(".steppers").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-step]");
+  if (!button) return;
+  const key = button.dataset.step;
+  const dir = Number(button.dataset.dir);
+  const max = STEP_MAX[key];
+  parts[key] = Math.min(max, Math.max(0, parts[key] + dir));
+  renderParts();
+  errorEl.textContent = "";
+});
+
+document.querySelector(".presets").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-preset]");
+  if (!button) return;
+  setParts(Number(button.dataset.preset));
+  errorEl.textContent = "";
+});
+
+function renderParts() {
+  hoursEl.textContent = String(parts.hours);
+  minutesEl.textContent = String(parts.minutes);
+  secondsEl.textContent = String(parts.seconds);
+  membersEl.textContent = String(parts.members);
+}
+
+function setParts(totalSec) {
+  const safe = Math.max(0, Math.floor(totalSec));
+  parts.hours = Math.min(STEP_MAX.hours, Math.floor(safe / 3600));
+  parts.minutes = Math.min(STEP_MAX.minutes, Math.floor((safe % 3600) / 60));
+  parts.seconds = Math.min(STEP_MAX.seconds, safe % 60);
+  renderParts();
+}
+
+function readDurationSeconds() {
+  return parts.hours * 3600 + parts.minutes * 60 + parts.seconds;
+}
+
+function unlockAudio() {
+  try {
+    audioCtx = audioCtx || new AudioContext();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch {
+    audioCtx = null;
+  }
+}
+
+function beep() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  [880, 1175].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    const start = now + i * 0.16;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(start);
+    osc.stop(start + 0.2);
+  });
+}
+
+function tick() {
+  const now = Date.now();
+  let finished = false;
+  for (const timer of timers) {
+    if (!timer.running || !timer.endsAt) continue;
+    const card = listEl.querySelector('[data-id="' + CSS.escape(timer.id) + '"]');
+    if (timer.endsAt <= now) {
+      finishTimer(timer);
+      finished = true;
+      updateCard(timer);
+      beep();
+    } else {
+      timer.remainingMs = timer.endsAt - now;
+      if (!card || card.classList.contains("dragging")) continue;
+      const time = card.querySelector(".time");
+      const fill = card.querySelector(".fill");
+      if (time) time.textContent = format(timer.remainingMs);
+      if (fill) fill.style.width = progressPct(timer) + "%";
+    }
+  }
+  if (finished) save();
+  syncOrder();
+  updateTitle();
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") tick();
+});
+
+renderParts();
+renderAll();
+setInterval(tick, 200);
+</script>
+</body>
+</html>
